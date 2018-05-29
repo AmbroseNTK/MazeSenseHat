@@ -1,16 +1,48 @@
 import sense_hat
 import time
+import random
+#class
+class Block:
+
+  def __init__(self):
+    self.x = 0
+    self.y = 0
+    self.isUp = False
+    self.isDown = False
+    self.isLeft = False
+    self.isRight = False
+    self.nextIndex = 0
+    self.previousIndex = 0
+
+  def isExistWay(self):
+    if self.isUp == True:
+      return True
+    if self.isDown == True:
+      return True
+    if self.isLeft == True:
+      return True
+    if self.isRight == True:
+      return True
+    return False
 #!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-
 s = sense_hat
 hat = sense_hat.SenseHat()
 #!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-
-#map data
-directoryMap = ''
-maps = [('MazeMapa.txt','MazeMapc.txt'),('MazeMa65x65a.txt','MazeMa65x65c.txt')]
+#map data, maps length always = 6
+directoryMap = 'MapData/'
+maps = [('MazeMapa.txt','MazeMapc.txt'),
+        ('MazeMa65x65a.txt','MazeMa65x65c.txt'),
+        ('MazeMa65x65v02a.txt','MazeMa65x65v02c.txt'),
+        ('MazeMapa.txt','MazeMapc.txt'),
+        ('MazeMapa.txt','MazeMapc.txt'),
+        ('MazeMapa.txt','MazeMapc.txt')]
 #editable var
-Map_a = 'MazeMapa.txt'
-Map_c = 'MazeMapc.txt'
+BotDelayMove = 0.2
+BotDelayBack = 0.1
+PlayerDelay = 0.1
 #constant var
+Map_a = ''
+Map_c = ''
 width =  32
 height = 32
 maze = []
@@ -21,6 +53,7 @@ gameover = False
 startPosition = [3,27]
 black = (0,0,0)
 playerColor = (0,255,255)
+isStart = False
 #methods
 #space = 0, wall = 1, player = 2, goal = 3, border color it 
 
@@ -185,17 +218,22 @@ def ValidatePlayerPosition():
 
 def InputProcessing():
   #
+  global isStart
   SetPlayerValueOnMap(0)
   #
   inputCode = GetInputCode()
   if inputCode == 1 and CheckAvailableTop() == 1: #UP
     player[1] -= 1
+    isStart = True
   elif inputCode == 2 and CheckAvailableDown() == 1: #DOWN
     player[1] += 1
+    isStart = True
   elif inputCode == 3 and CheckAvailableLeft() == 1: #LEFT
     player[0] -= 1
+    isStart = True
   elif inputCode == 4 and CheckAvailableRight() == 1: #RIGHT
     player[0] += 1
+    isStart = True
   elif CheckAvailableTop() == 2 or CheckAvailableDown() == 2 or CheckAvailableLeft() == 2 or CheckAvailableRight() == 2:
     GameOver()
   elif inputCode == 5: #Reset
@@ -218,6 +256,12 @@ def GameOver():
 def ResetGame():
   global gameover
   global player
+  global steps
+  global isGoal
+  global curIndex
+  curIndex = 0
+  isGoal = False
+  steps = []
   gameover = False
   player = []
 
@@ -352,22 +396,250 @@ def DisplaySelectMap():
       selectedMap = select
     hat.set_pixels(pixels)
   return selectedMap
+
+#Bot Code
+steps = []
+isGoal = False
+curIndex = 0
+
+def Explore():
+  global isGoal
+  global curIndex
+  global steps
+  global BotDelayMove
+  global BotDelayBack
+  if isGoal == True:
+    return 0
+  if len(steps) < 1:
+    b = Block()
+    b.isUp = BotCheckUp()
+    b.isDown = BotCheckDown()
+    b.isLeft = BotCheckLeft()
+    b.isRight = BotCheckRight()
+    b.x = 0
+    b.y = 0
+    steps.append(b)
+    return 0
+  else:
+    if steps[curIndex].isExistWay() == False:
+      pre = steps[curIndex].previousIndex
+      delX = int(steps[pre].x - steps[curIndex].x)
+      delY = int(steps[pre].y - steps[curIndex].y)
+      if delX > 0:
+        MoveRight()
+      elif delX < 0:
+        MoveLeft()
+      elif delY > 0:
+        MoveDown()
+      elif delY < 0:
+        MoveUp()
+      curIndex = steps[curIndex].previousIndex
+      return BotDelayBack
+    #random move
+    moves = []
+    if steps[curIndex].isRight == True:
+      moves.append(1)
+      
+    if steps[curIndex].isUp == True:
+      moves.append(2)
+      
+    if steps[curIndex].isDown == True:
+      moves.append(3)
+      
+    if steps[curIndex].isLeft == True:
+      moves.append(4)
+    #
+    choice = random.choice(moves)
+    # 
+    if choice == 1:
+      MoveRight()
+      steps[curIndex].isRight = False
+      tempb = Block()
+      steps.append(tempb)
+      last = len(steps) - 1
+      steps[last].x = steps[curIndex].x + 1
+      steps[last].y = steps[curIndex].y
+      steps[last].isUp = BotCheckUp()
+      steps[last].isRight = BotCheckRight()
+      steps[last].isDown = BotCheckDown()
+      steps[last].isLeft = False
+
+      steps[curIndex].nextIndex = last
+      steps[last].previousIndex = curIndex
+      curIndex = steps[curIndex].nextIndex
+      return BotDelayMove
+    
+    if choice == 2:
+      MoveUp()
+      steps[curIndex].isUp = False
+      tempb = Block()
+      steps.append(tempb)
+      last = len(steps) - 1
+      steps[last].x = steps[curIndex].x
+      steps[last].y = steps[curIndex].y - 1
+      steps[last].isUp = BotCheckUp()
+      steps[last].isRight = BotCheckRight()
+      steps[last].isLeft = BotCheckLeft()
+      steps[last].isDown = False
+      steps[curIndex].nextIndex = last
+      steps[last].previousIndex = curIndex
+      curIndex = steps[curIndex].nextIndex
+      return BotDelayMove
+    
+    if choice == 3:
+      MoveDown()
+      steps[curIndex].isDown = False
+      tempb = Block()
+      steps.append(tempb)
+      last = len(steps) - 1
+      steps[last].x = steps[curIndex].x
+      steps[last].y = steps[curIndex].y + 1
+      steps[last].isDown = BotCheckDown()
+      steps[last].isRight = BotCheckRight()
+      steps[last].isLeft = BotCheckLeft()
+      steps[last].isUp = False
+      steps[curIndex].nextIndex = last
+      steps[last].previousIndex = curIndex
+      curIndex = steps[curIndex].nextIndex
+      return BotDelayMove
+    
+    if choice == 4:
+      MoveLeft()
+      steps[curIndex].isLeft = False
+      tempb = Block()
+      steps.append(tempb)
+      last = len(steps) - 1
+      steps[last].x = steps[curIndex].x - 1
+      steps[last].y = steps[curIndex].y
+      steps[last].isUp = BotCheckUp()
+      steps[last].isDown = BotCheckDown()
+      steps[last].isLeft = BotCheckLeft()
+      steps[last].isRight = False
+      steps[curIndex].nextIndex = last
+      steps[last].previousIndex = curIndex
+      curIndex = steps[curIndex].nextIndex
+      return BotDelayMove
+
+def MoveUp():
+  global player
+  SetPlayerValueOnMap(0)
+  #
+  player[1] -= 1
+  #
+  SetPlayerValueOnMap(2)
+
+def MoveDown():
+  global player
+  SetPlayerValueOnMap(0)
+  #
+  player[1] += 1
+  #
+  SetPlayerValueOnMap(2)
+
+def MoveLeft():
+  global player
+  SetPlayerValueOnMap(0)
+  #
+  player[0] -= 1
+  #
+  SetPlayerValueOnMap(2)
   
+def MoveRight():
+  global player
+  SetPlayerValueOnMap(0)
+  #
+  player[0] += 1
+  #
+  SetPlayerValueOnMap(2)
+  
+def BotCheckUp():
+  result = CheckAvailableTop()
+  if result == 2:
+    global isGoal
+    isGoal = True
+    return False
+  elif result == 0:
+    return False
+  length = len(steps) - 2
+  last = len(steps) - 1
+  for i in range(0,length):
+    index = length - i
+    if steps[last].x == steps[index].x and steps[last].y - 2 == steps[index].y:
+      return False
+  return True
+  
+def BotCheckDown():
+  result = CheckAvailableDown()
+  if result == 2:
+    global isGoal
+    isGoal = True
+    return False
+  elif result == 0:
+    return False
+  length = len(steps) - 2
+  last = len(steps) - 1
+  for i in range(0,length):
+    index = length - i
+    if steps[last].x == steps[index].x and steps[last].y + 2 == steps[index].y:
+      return False
+  return True
+  
+def BotCheckRight():
+  result = CheckAvailableRight()
+  if result == 2:
+    global isGoal
+    isGoal = True
+    return False
+  elif result == 0:
+    return False
+  length = len(steps) - 2
+  last = len(steps) - 1
+  for i in range(0,length):
+    index = length - i
+    if steps[last].x + 2 == steps[index].x and steps[last].y == steps[index].y:
+      return False
+  return True
+  
+def BotCheckLeft():
+  result = CheckAvailableLeft()
+  if result == 2:
+    global isGoal
+    isGoal = True
+    return False
+  elif result == 0:
+    return False
+  length = len(steps) - 2
+  last = len(steps) - 1
+  for i in range(0,length):
+    index = length - i
+    if steps[last].x -2 == steps[index].x and steps[last].y== steps[index].y:
+      return False
+  return True
+
+#Game Flow
 InitScreen()
 while True:
   #menu
   mode = DisplaySelectMode()
   mapID = DisplaySelectMap()
-  if mapID > 1:
-    mapID = 0
   #loadmap
   LoadGame(mapID)
   #gameplay
-  while gameover == False:
-    InputProcessing()
-    Render(0.1)
+  markTime = time.time()
+  if mode == 0:
+    while gameover == False:
+      if(isStart == False):
+        markTime = time.time()
+      InputProcessing()
+      Render(PlayerDelay)
+  else:
+    markTime = time.time()
+    while isGoal == False:
+      wait = Explore()
+      Render(wait)
   #gameover
-  s.SenseHat().show_message('win')
+  totalTime = int(time.time() - markTime)
+  s.SenseHat().show_message('win ' + str(totalTime) + 's')
   ResetValue = 0
   while ResetValue == 0:
     if GetInputCode() == 5:
